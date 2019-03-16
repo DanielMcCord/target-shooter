@@ -174,6 +174,7 @@ local createTarget
 local bulletDone
 local targetDone
 local touched
+local hypotenuse
 local hitTest
 local newFrame
 local initApp
@@ -211,31 +212,35 @@ function touched( event )
     if event.phase == "began" then
         local b = createBullet()
         -- transition.to( b, { ... onComplete = bulletDone } )
-        local t = turret
-        t.rotation = math.deg( math.atan2( event.y - t.y, event.x - t.x ) ) + 90
+        turret.rotation = math.deg( math.atan2( event.y - t.y, event.x - t.x ) ) + 90
     end
+end
+
+-- Returns the hypotenuse of a right triangle given the other two sides
+function hypotenuse( a, b )
+    return ( math.sqrt( math.pow( a, 2 ) + math.pow( b, 2 ) ) )
 end
 
 -- Return true if the given bullet hit the given target
 -- Treats b as a circle even if it isn't. t can be a circle, rect, or roundedRect.
 function hitTest( b, t )
     for i = t.numChildren, 1, -1 do
-        local shape = t[i].path.type
-        if shape == "rect" or shape == "roundedRect" then
-            -- Get coordinates of bullet with respect to the target
-            local bX, bY = t[i].contentToLocal( b.x, b.y )
-            local r = b.path.radius or width * height / 2 -- in case r isn't a circle
+        -- Get coordinates of bullet with respect to the target
+        local bX, bY = t[i].contentToLocal( b.x, b.y )
+        -- Get radius of bullet or calculate pseudo-radius
+        local rBullet = b.path.radius or b.width * b.height / 2
+        if t[i].path.type == "rect" or t[i].path.type == "roundedRect" then
             -- Calculate x and y distance of bullet center from target edge
-            local xDist = math.abs( bX - t[i].x ) - width / 2
-            local yDist = math.abs( bY - t[i].y ) - height / 2
+            local xDist = math.abs( bX - t[i].x ) - t.width / 2
+            local yDist = math.abs( bY - t[i].y ) - t.height / 2
             -- Check if bullet has crossed both edge lines
-            if xDist < r and yDist < r then
+            if xDist < rBullet and yDist < rBullet then
                 -- Check for special case where bullet is near a corner
                 if xDist > 0 and yDist > 0 then
                     local rCorner = t[i].path.radius or 0 -- rectangle corner radius
                     -- Check if bullet is actually touching the corner
-                    if math.sqrt( math.pow( xDist + ( rCorner ), 2 ) 
-                            + math.pow( yDist + ( rCorner ), 2 ) ) < r + rCorner then
+                    if hypotenuse( xDist + rCorner, yDist + rCorner )
+                            < rBullet + rCorner then
                         -- The bullet hit the corner
                         return true
                     end
