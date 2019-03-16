@@ -213,21 +213,48 @@ function touched( event )
         -- transition.to( b, { ... onComplete = bulletDone } )
         local t = turret
         t.rotation = math.deg( math.atan2( event.y - t.y, event.x - t.x ) ) + 90
-        print(turret.rotation)
     end
 end
 
 -- Return true if the given bullet hit the given target
+-- Treats b as a circle even if it isn't. t can be a circle, rect, or roundedRect.
 function hitTest( b, t )
-    -- ...
+    for i = t.numChildren, 1, -1 do
+        local shape = t[i].path.type
+        if shape == "rect" or shape == "roundedRect" then
+            -- Get coordinates of bullet with respect to the target
+            local bX, bY = t[i].contentToLocal( b.x, b.y )
+            local r = b.path.radius or width * height / 2 -- in case r isn't a circle
+            -- Calculate x and y distance of bullet center from target edge
+            local xDist = math.abs( bX - t[i].x ) - width / 2
+            local yDist = math.abs( bY - t[i].y ) - height / 2
+            -- Check if bullet has crossed both edge lines
+            if xDist < r and yDist < r then
+                -- Check for special case where bullet is near a corner
+                if xDist > 0 and yDist > 0 then
+                    local rCorner = t[i].path.radius or 0 -- rectangle corner radius
+                    -- Check if bullet is actually touching the corner
+                    if math.sqrt( math.pow( xDist + ( rCorner ), 2 ) 
+                            + math.pow( yDist + ( rCorner ), 2 ) ) < r + rCorner then
+                        -- The bullet hit the corner
+                        return true
+                    end
+                else
+                    -- The bullet hit the edge
+                    return true
+                end
+            end
+        end
+    end
+    return false
 end
 
 -- Called before each animation frame
 function newFrame()
     -- Launch new targets at random intervals and speeds
-    -- if math.random() < 0.?? then
-    --    ...
-    -- end
+    if math.random() < 0.01 then
+        createTarget()
+    end
 
     -- Test for hits (all bullets against all targets)
     for i = bullets.numChildren, 1, -1 do
