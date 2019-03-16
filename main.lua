@@ -181,8 +181,10 @@ local initApp
 
 -- Create and return a new bullet object.
 function createBullet()
-    -- local b = ...    (use the bullets group as the parent)
-    -- return b
+    local t = turret
+    local x, y = t:localToContent( t[1].x, t[1].y - t[1].height / 2 )
+    local b = display.newCircle( bullets, x, y, 5 )
+    return b
 end
 
 -- Create and return a new target object at a random altitude.
@@ -210,15 +212,16 @@ end
 -- Fire a new bullet.
 function touched( event )
     if event.phase == "began" then
+        local t = turret
+        t.rotation = math.deg( math.atan2( event.y - t.y, event.x - t.x ) ) + 90
         local b = createBullet()
         -- transition.to( b, { ... onComplete = bulletDone } )
-        turret.rotation = math.deg( math.atan2( event.y - t.y, event.x - t.x ) ) + 90
     end
 end
 
 -- Returns the hypotenuse of a right triangle given the other two sides
 function hypotenuse( a, b )
-    return ( math.sqrt( math.pow( a, 2 ) + math.pow( b, 2 ) ) )
+    return math.sqrt( math.pow( a, 2 ) + math.pow( b, 2 ) )
 end
 
 -- Return true if the given bullet hit the given target
@@ -250,7 +253,7 @@ function hitTest( b, t )
             end
         else -- treat t as a circle by default
             if hypotenuse( math.abs( bX - t[i].x ), math.abs( bY - t[i].y ) )
-                    < rBullet + (t.path.radius or (t.width + t.height) / 4 ) then
+                    < rBullet + ( t.path.radius or ( t.width + t.height ) / 4 ) then
                 return true
             end
         end
