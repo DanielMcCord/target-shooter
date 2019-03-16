@@ -222,13 +222,12 @@ function hypotenuse( a, b )
 end
 
 -- Return true if the given bullet hit the given target
--- Treats b as a circle even if it isn't. t can be a circle, rect, or roundedRect.
+-- b should be a circle. t should be a circle, rect, or roundedRect.
 function hitTest( b, t )
+    local rBullet = b.path.radius or b.width / 2
     for i = t.numChildren, 1, -1 do
         -- Get coordinates of bullet with respect to the target
         local bX, bY = t[i].contentToLocal( b.x, b.y )
-        -- Get radius of bullet or calculate pseudo-radius
-        local rBullet = b.path.radius or b.width * b.height / 2
         if t[i].path.type == "rect" or t[i].path.type == "roundedRect" then
             -- Calculate x and y distance of bullet center from target edge
             local xDist = math.abs( bX - t[i].x ) - t.width / 2
@@ -248,6 +247,11 @@ function hitTest( b, t )
                     -- The bullet hit the edge
                     return true
                 end
+            end
+        else -- treat t as a circle by default
+            if hypotenuse( math.abs( bX - t[i].x ), math.abs( bY - t[i].y ) )
+                    < rBullet + (t.path.radius or (t.width + t.height) / 4 ) then
+                return true
             end
         end
     end
