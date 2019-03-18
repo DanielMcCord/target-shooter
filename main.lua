@@ -189,7 +189,7 @@ end
 function newFrame()
     -- Launch new targets at random intervals and speeds
     if math.random() < 0.01 then
-        t = createTarget()
+        local t = createTarget()
         transition.to( t, {
             x = t.x + WIDTH * t.direction,
             onComplete = targetDone,
