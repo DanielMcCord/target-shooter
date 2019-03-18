@@ -10,147 +10,6 @@
 --
 -----------------------------------------------------------------------------------------
 
---[[
-In this assignment you will create a simple target shooting game, using a couple of new
-Corona features: Display Groups, and Transition Animations. Display Groups are a way to
-structure more complex graphics into sub-parts, and Transition Animations are a different
-method of doing animation (rather than changing object positions manually in an
-"enterFrame" event listener). In addition, you will make more use of functions in Lua to
-organize your code and keep track of your objects effectively.
-
-Game Description
-
-At the bottom center of the screen there is a "gun" (or some kind of shooting weapon of
-your choice). When the user taps the screen, the gun shoots a bullet upwards. You can
-choose to have the bullet always shoot straight up, or shoot in the direction of the tap
-if you want. Each time you tap, another bullet is fired. Holding your finger down after a
-tap should not keep shooting more, though. In other words, we want a "semi-automatic"
-machine gun, not a "fully automatic" one. Each bullet should move using a transition
-animation (instead of modifying its coordinates manually each frame as we did in the Fly
-Game).
-
-Flying horizontally across the screen are various targets, which are launched at random
-intervals, random altitudes, and random speeds. Each target should be a display group
-made up of more than one sub-part that all move as one unit. In addition to moving
-horizontally, targets should rotate about their center for a tumbling effect. Targets
-also move using a transition animation.
-
-There is no limit to the number of bullets that can be on the screen at a time (limited
-only by the user's tapping speed). New bullets are created as needed, and when a bullet
-goes off the top of the screen it is destroyed and a bullet miss is counted. 
-
-If a target goes off the screen after flying by, a target miss is counted.
-
-If a bullet hits a target, both the bullet and the target are destroyed and disappear, a
-hit is counted, and an animated explosion is drawn. The explosion should grow in size and
-also fade out over a time interval (again using a transition animation).
-
-The game displays at least # hits, # bullet misses, and # target misses on-screen (and
-percent stats using these if you want).
-
-More Info and Hints
-
-Your program should do the hit testing manually (don't use physics collisions). This can
-be done by keeping a display group containing all the bullets, another display group of
-all the targets, and then testing every active bullet against every active target, every
-frame. This means you will have an "enterFrame" listener function which does something
-like this:
-
-for i = 1, bullets.numChildren do
-     for j = 1, targets.numChildren do
-          if hitTest( bullets[i], targets[j] ) then
-                -- hit
-          end
-     end
-end
-
-You will need to write the hitTest(bullet, target) function (similar to Fly Game) and
-figure out how to handle the hit. Handling the hit will include:
-
-    Cancel any active transition animations on the bullet. You can use
-    transition.cancel(obj).
-    
-    Delete the bullet object (which will automatically remove it from the bullets group).
-    You can use obj:removeSelf()
-
-    Cancel any active transition animations on the target.
-
-    Delete the target object (which should automatically remove it from the bullets
-    group)
-
-    Count a hit
-
-    Update the score display
-
-    Create the explosion and start its animation
-
-
-However, note that if you actually delete objects during the execution of the for loops
-as shown above, then the loops will screw up and go too far and produce nil objects later
-on (why?)... One way to solve this will be shown in the sample code posted.
-
-You can detect misses for bullets and targets by the fact that its transition animation
-completes, which will call the onComplete handler for the transition.
-
-To animate an explosion, use transition.to, and see the xScale, yScale, and alpha
-parameters. Make sure you delete the explosion object when it is done.
-
-Grading
-
-    [DONE](10) Start with the blank app template, app named correctly (e.g.
-    "Parker Target Shooter"), no physics.
-
-    [DONE](5) Bullet fired each time user taps screen (at start of touch, but only once
-    per tap).
-
-    [DONE](5) Bullets move up using a transition.to animation
-
-    [DONE](5) Bullet objects are created right when fired, using a Lua function that
-    creates and returns one.
-
-    [DONE](5) Bullet objects are destroyed when they go off the top of the screen.
-
-    [TODO](5) Target objects are display groups containing sub-parts (circles,
-    rectangles, images, etc.)
-
-    [TODO](5) Targets launch at random intervals, random altitudes, and random speeds.
-
-    [TODO](10) Target objects are created right when launched using a Lua function that
-    one, and destroyed when done.
-
-    [TODO](5) Target flies horizontally across the screen and tumbles (rotates) while it
-    flies, using a single transition.to animation.
-
-    [DONE](5) Check for hits for any active bullet against any active target.
-
-    [TODO](10) Handle hits properly
-
-    [DONE](5) Handle misses properly
-
-    [TODO](10) Explosion graphic is drawn at a hit and animated with transition.to. It
-    should expand and fade, then get deleted.
-
-    [DONE](5) Stats shown on-screen with at least #hits, #bullet misses, #target misses.
-
-    [TODO](5) Lua code contains no global variables (file local Ok when appropriate) and
-    no dangling object references (nothing should reference an object after it gets
-    destroyed).
-
-    [DONE](5) Code has good comments, indentation, and overall function structure. Write
-    and use an initGame function to minimize code in the main chunk.
-
-
-Extra Credit:
-
-    [TODO](+5) Implement at least 3 different types of targets that look and act
-    different, and are chosen randomly for each launch. Try to use tables, functions, and
-    perhaps function references inside tables to create and process them (to avoid 3+
-    chunks of near-duplicate code anywhere).
-
-
-Total: 100 points, or up to 105 with extra credit.
-]]--
-
 -- Constants
 
 -- Get the screen metrics (use the entire device screen area)
@@ -162,12 +21,17 @@ local X_MAX = X_MIN + WIDTH -- the right edge of the display
 local Y_MAX = Y_MIN + HEIGHT -- the bottom edge of the display
 local X_CENTER = (X_MIN + X_MAX) / 2 -- the center of the display (horozontal axis)
 local Y_CENTER = (Y_MIN + Y_MAX) / 2 -- the center of the display (vertical axis)
+local SPAWN_Y_MIN = Y_MIN + HEIGHT / 16
+local SPAWN_Y_MAX = Y_MAX - HEIGHT / 4
 
 -- File local variables
 local bullets -- display group of all active bullets
 local targets -- display group of all active targets
 local turret -- display group for the turret
 local scores -- table of Score objects
+
+-- File local classes
+local Score
 
 -- File local functions
 local createBullet
@@ -180,8 +44,9 @@ local hitTest
 local newFrame
 local initGame
 
--- File local classes
-local Score = {
+-- Class definitions
+Score =
+{
     -- Constructor. Parameters follow modern syntax for display.newText(),
     -- with one difference: the default value of 0 is appended to score.textObj.text,
     -- but instance variable text is set to the passed value of text.
@@ -210,14 +75,25 @@ local Score = {
 function createBullet()
     local t = turret
     local x, y = t:localToContent( t[1].x, t[1].y - t[1].height / 2 )
-    local b = display.newCircle( bullets, x, y, 5 )
+    local b = display.newCircle( bullets, x, y, t.caliber / 2 )
     return b
 end
 
 -- Create and return a new target object at a random altitude.
 function createTarget()
     local t = display.newGroup()    -- composite target object
-    -- ...
+    t.y = math.random( SPAWN_Y_MIN, SPAWN_Y_MAX )
+    t.x = X_MIN
+    t.direction = 1
+    temp1 = display.newRect(0, 0, 50, 50 )
+    t:insert( temp1, false )
+    t[1].x = X_MIN 
+    temp1:setFillColor( math.random(), math.random(), math.random() )
+    -- t[1].rotation = t[1].rotation + 45
+    -- temp2 = display["newRect"](t, 0, 0, 10, 10 )
+    -- temp2.x = temp2.x + 100
+    --temp1:setFillColor( 0.5, 0, 0 )
+
     targets:insert( t )   -- put t into the targets group
     return t
 end
@@ -258,8 +134,8 @@ function touched( event )
             transition.to( b, {
                 y = bEndingY or Y_MIN,
                 x = bEndingX,
-                time = t.firingVelocity
-                    * hypotenuse( b.y - ( bEndingY or Y_MIN ), b.x - bEndingX),
+                time = hypotenuse( b.y - ( bEndingY or Y_MIN ), b.x - bEndingX)
+                    / t.firingVelocity,
                 onComplete = bulletDone,
             } )
         end
@@ -275,14 +151,14 @@ end
 -- b should be a circle.
 -- t should be a display group of circles, rects, and/or roundedRects.
 function hitTest( b, t )
-    local rBullet = b.path.radius or b.width / 2
+    local rBullet = b.path.radius --or b.width / 2
     for i = t.numChildren, 1, -1 do
         -- Get coordinates of bullet with respect to the target
-        local bX, bY = t[i].contentToLocal( b.x, b.y )
+        local bX, bY = t[i]:contentToLocal( b.x, b.y )
         if t[i].path.type == "rect" or t[i].path.type == "roundedRect" then
             -- Calculate x and y distance of bullet center from target edge
-            local xDist = math.abs( bX - t[i].x ) - t.width / 2
-            local yDist = math.abs( bY - t[i].y ) - t.height / 2
+            local xDist = math.abs( bX - t[i].x ) - t[i].width / 2
+            local yDist = math.abs( bY - t[i].y ) - t[i].height / 2
             -- Check if bullet has crossed both edge lines
             if xDist < rBullet and yDist < rBullet then
                 -- Check for special case where bullet is near a corner
@@ -313,7 +189,13 @@ end
 function newFrame()
     -- Launch new targets at random intervals and speeds
     if math.random() < 0.01 then
-        createTarget()
+        t = createTarget()
+        transition.to( t, {
+            x = t.x + WIDTH * t.direction,
+            onComplete = targetDone,
+            rotation = ( math.random() - 0.5 ) * 4 * 360,
+            time = 150000 / ( 1 + t.y * math.random() )
+        } )
     end
 
     -- Test for hits (all bullets against all targets)
@@ -381,8 +263,8 @@ function initGame()
     turret.x = X_CENTER
     turret.y = Y_MAX - turret[1].height / 2
     turret.firingArc = 180
-    turret.firingVelocity = 5
-    -- ...
+    turret.firingVelocity = 1.5
+    turret.caliber = 10
 
     -- Add event listeners
     Runtime:addEventListener( "touch", touched )
