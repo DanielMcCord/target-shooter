@@ -125,7 +125,7 @@ Grading
 
     [TODO](10) Handle hits properly
 
-    [TODO](5) Handle misses properly
+    [DONE](5) Handle misses properly
 
     [TODO](10) Explosion graphic is drawn at a hit and animated with transition.to. It
     should expand and fade, then get deleted.
@@ -258,7 +258,8 @@ function touched( event )
             transition.to( b, {
                 y = bEndingY or Y_MIN,
                 x = bEndingX,
-                time = 5 * hypotenuse( b.y - ( bEndingY or Y_MIN ), b.x - bEndingX),
+                time = t.firingVelocity
+                    * hypotenuse( b.y - ( bEndingY or Y_MIN ), b.x - bEndingX),
                 onComplete = bulletDone,
             } )
         end
@@ -325,7 +326,6 @@ function newFrame()
             if hitTest( b, t ) then
                 -- Count a hit
                 scores.hits:change( 1 )
-                -- ...
 
                 -- Make an explosion
                 -- ...
@@ -381,6 +381,7 @@ function initGame()
     turret.x = X_CENTER
     turret.y = Y_MAX - turret[1].height / 2
     turret.firingArc = 180
+    turret.firingVelocity = 5
     -- ...
 
     -- Add event listeners
