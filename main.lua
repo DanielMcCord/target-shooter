@@ -97,18 +97,18 @@ parameters. Make sure you delete the explosion object when it is done.
 
 Grading
 
-    [TODO](10) Start with the blank app template, app named correctly (e.g.
+    [DONE](10) Start with the blank app template, app named correctly (e.g.
     "Parker Target Shooter"), no physics.
 
-    [TODO](5) Bullet fired each time user taps screen (at start of touch, but only once
+    [DONE](5) Bullet fired each time user taps screen (at start of touch, but only once
     per tap).
 
-    [TODO](5) Bullets move up using a transition.to animation
+    [DONE](5) Bullets move up using a transition.to animation
 
-    [TODO](5) Bullet objects are created right when fired, using a Lua function that
+    [DONE](5) Bullet objects are created right when fired, using a Lua function that
     creates and returns one.
 
-    [TODO](5) Bullet objects are destroyed when they go off the top of the screen.
+    [DONE](5) Bullet objects are destroyed when they go off the top of the screen.
 
     [TODO](5) Target objects are display groups containing sub-parts (circles,
     rectangles, images, etc.)
@@ -121,7 +121,7 @@ Grading
     [TODO](5) Target flies horizontally across the screen and tumbles (rotates) while it
     flies, using a single transition.to animation.
 
-    [TODO](5) Check for hits for any active bullet against any active target.
+    [DONE](5) Check for hits for any active bullet against any active target.
 
     [TODO](10) Handle hits properly
 
@@ -130,13 +130,13 @@ Grading
     [TODO](10) Explosion graphic is drawn at a hit and animated with transition.to. It
     should expand and fade, then get deleted.
 
-    [TODO](5) Stats shown on-screen with at least #hits, #bullet misses, #target misses.
+    [DONE](5) Stats shown on-screen with at least #hits, #bullet misses, #target misses.
 
     [TODO](5) Lua code contains no global variables (file local Ok when appropriate) and
     no dangling object references (nothing should reference an object after it gets
     destroyed).
 
-    [TODO](5) Code has good comments, indentation, and overall function structure. Write
+    [DONE](5) Code has good comments, indentation, and overall function structure. Write
     and use an initGame function to minimize code in the main chunk.
 
 
@@ -167,6 +167,7 @@ local Y_CENTER = (Y_MIN + Y_MAX) / 2 -- the center of the display (vertical axis
 local bullets -- display group of all active bullets
 local targets -- display group of all active targets
 local turret -- display group for the turret
+local scores -- table of Score objects
 
 -- File local functions
 local createBullet
@@ -177,8 +178,34 @@ local touched
 local hypotenuse
 local hitTest
 local newFrame
-local initApp
+local initGame
 
+-- File local classes
+local Score = {
+    -- Constructor. Parameters follow modern syntax for display.newText(),
+    -- with one difference: the default value of 0 is appended to score.textObj.text,
+    -- but instance variable text is set to the passed value of text.
+    new = function( self, options )
+        local score = {
+            value = 0,
+        }
+        if options then
+            score.textObj = display.newText( options )
+            score.text = score.textObj.text
+            score.textObj.text = score.text .. score.value
+        end
+        setmetatable( score, self )
+        self.__index = self
+        return score
+    end,
+    -- 
+    change = function( self, amount )
+        self.value = self.value + amount
+        self.textObj.text = self.text .. self.value
+    end,
+}
+
+-- Function definitions
 -- Create and return a new bullet object.
 function createBullet()
     local t = turret
@@ -198,24 +225,43 @@ end
 -- Called when a bullet goes off the top of the screen
 -- Delete the bullet and count a bullet miss.
 function bulletDone( obj )
+    scores.bulletMisses:change( 1 )
     obj:removeSelf()
-    -- ...
 end
 
 -- Called when a target goes off the left of the screen
 -- Delete the target and count a target miss.
 function targetDone( obj )
-    -- ...
+    scores.targetMisses:change( 1 )
+    obj:removeSelf()
 end
 
 -- Called when the screen is touched
 -- Fire a new bullet.
 function touched( event )
+    local t = turret
     if event.phase == "began" then
-        local t = turret
-        t.rotation = math.deg( math.atan2( event.y - t.y, event.x - t.x ) ) + 90
-        local b = createBullet()
-        -- transition.to( b, { ... onComplete = bulletDone } )
+        -- Determine what the angle of the turret should be based on event coordinates
+        local rotation = math.deg( math.atan2( event.y - t.y, event.x - t.x ) ) + 90
+        if math.abs(rotation) < t.firingArc / 2 then
+            t.rotation = rotation
+            local b = createBullet()
+            -- Calculate the x coordinate where the bullet would reach the top
+            local bEndingX = b.x + (b.y - Y_MIN) * math.tan( math.rad( rotation ) )
+            local bEndingY -- Will be nil unless bullet is hitting the side
+            -- Check if the bullet is going to hit the side first
+            if bEndingX <= X_MIN or bEndingX >= X_MAX then
+                bEndingY = b.y + (b.x - ( t.rotation < 0 and X_MIN or X_MAX ) )
+                    / math.tan( math.rad( rotation ) )
+                bEndingX = math.max( math.min( bEndingX, X_MAX ), X_MIN )
+            end
+            transition.to( b, {
+                y = bEndingY or Y_MIN,
+                x = bEndingX,
+                time = 5 * hypotenuse( b.y - ( bEndingY or Y_MIN ), b.x - bEndingX),
+                onComplete = bulletDone,
+            } )
+        end
     end
 end
 
@@ -225,7 +271,8 @@ function hypotenuse( a, b )
 end
 
 -- Return true if the given bullet hit the given target
--- b should be a circle. t should be a circle, rect, or roundedRect.
+-- b should be a circle.
+-- t should be a display group of circles, rects, and/or roundedRects.
 function hitTest( b, t )
     local rBullet = b.path.radius or b.width / 2
     for i = t.numChildren, 1, -1 do
@@ -277,6 +324,7 @@ function newFrame()
 
             if hitTest( b, t ) then
                 -- Count a hit
+                scores.hits:change( 1 )
                 -- ...
 
                 -- Make an explosion
@@ -298,17 +346,41 @@ function newFrame()
 end
 
 -- Init the app
-function initApp()
+function initGame()
     -- Create display groups for active bullets, targets, and the turret
     bullets = display.newGroup()
     targets = display.newGroup()
     turret = display.newGroup()
+    scores = {
+        hits = Score:new{
+            text = "#hits: ",
+            x = X_CENTER,
+            y = Y_MIN + 0.5 * HEIGHT / 13,
+            width = WIDTH,
+            align = "left",
+        },
+        bulletMisses = Score:new{
+            text = "#bullet misses: ",
+            x = X_CENTER,
+            y = Y_MIN + HEIGHT / 13,
+            width = WIDTH,
+            align = "left",
+        },
+        targetMisses = Score:new{
+            text = "#target misses: ",
+            x = X_CENTER,
+            y = Y_MIN + 1.5 * HEIGHT / 13,
+            width = WIDTH,
+            align = "left",
+        },
+    }
 
     -- Create and position the turret
     turret:insert( display.newImage( "turret.png" ) ) 
     turret[1].aspect = turret[1].width / turret[1].height
     turret.x = X_CENTER
     turret.y = Y_MAX - turret[1].height / 2
+    turret.firingArc = 180
     -- ...
 
     -- Add event listeners
@@ -317,4 +389,4 @@ function initApp()
 end
 
 -- Start the game
-initApp()
+initGame()
