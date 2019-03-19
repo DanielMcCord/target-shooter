@@ -100,7 +100,7 @@ Grading
     [TODO](5) Target objects are display groups containing sub-parts (circles,
     rectangles, images, etc.)
 
-    [TODO](5) Targets launch at random intervals, random altitudes, and random speeds.
+    [DONE](5) Targets launch at random intervals, random altitudes, and random speeds.
 
     [TODO](10) Target objects are created right when launched using a Lua function that
     one, and destroyed when done.

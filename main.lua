@@ -83,8 +83,11 @@ end
 function createTarget()
     local t = display.newGroup()    -- composite target object
     t.y = math.random( SPAWN_Y_MIN, SPAWN_Y_MAX )
-    t.x = X_MIN
-    t.direction = 1
+    t.direction = math.random( 1 )
+    if t.driection == 0 then
+        t.direction = -1
+    end 
+    t.x = X_CENTER + WIDTH * t.direction / -2
     temp1 = display.newRect(0, 0, 50, 50 )
     t:insert( temp1, false )
     t[1].x = X_MIN 
