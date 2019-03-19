@@ -108,7 +108,7 @@ Grading
     [DONE](5) Target flies horizontally across the screen and tumbles (rotates) while it
     flies, using a single transition.to animation.
 
-    [TODO](5) Check for hits for any active bullet against any active target.
+    [DONE](5) Check for hits for any active bullet against any active target.
 
     [DONE](10) Handle hits properly
 
@@ -129,7 +129,7 @@ Grading
 
 Extra Credit:
 
-    [TODO](+5) Implement at least 3 different types of targets that look and act
+    [DONE](+5) Implement at least 3 different types of targets that look and act
     different, and are chosen randomly for each launch. Try to use tables, functions, and
     perhaps function references inside tables to create and process them (to avoid 3+
     chunks of near-duplicate code anywhere).

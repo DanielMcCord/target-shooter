@@ -38,7 +38,6 @@ local targetTypes = { -- tables of object contructor functions
 
 -- File local classes
 local Score
-local Target
 
 -- File local functions
 local createBullet
@@ -82,40 +81,6 @@ Score =
         self.textObj.text = self.text .. self.value
     end,
 }
-Target =
-{
-    -- Instance variables:
-        -- rotates -- whether the target should rotate during transitions
-        -- direction -- which way the target should move along the x-axis,
-            -- which is determined by whether it is compused of non-rounded rects.
-    -- Constructor. Makes four display objects in a "diamond" configuration
-    -- targetSize is the distance of each display object from the center of the group.
-    new = function( self, constructor, targetSize, radiusOrWidth, height,
-            cornerRadius )
-        local target = display.newGroup()
-        if constructor == display.newCircle then
-            target.rotates = false
-        else
-            target.rotates = true
-        end
-        target.direction = constructor == display.newRect and
-            1 or -1 -- roundedRects move to left
-        constructor( target, 0, targetSize, radiusOrWidth, height, cornerRadius) 
-        constructor( target, targetSize, 0, radiusOrWidth, height, cornerRadius)
-        constructor( target, 0, -targetSize, radiusOrWidth, height, cornerRadius)
-        constructor( target, -targetSize, 0, radiusOrWidth, height, cornerRadius)
-        for i = target.numChildren, 1, -1 do
-            target[i]:setFillColor(
-                math.random() / 3 + 0.5,
-                math.random() / 3 + 0.5,
-                math.random() / 3 + 0.5
-            )
-        end
-        setmetatable( target, self )
-        self.__index = self
-        return target
-    end
-}
 
 -- Function definitions
 -- Create and return a new bullet object.
@@ -126,10 +91,24 @@ function createBullet()
     return b
 end
 
--- Create and return a new target object at a random altitude.
+-- Create and return a new target group at a random altitude.
 function createTarget()
-    local t = Target:new(targetTypes[math.random(#targetTypes)],
-        20, math.random( 10, 40 ), math.random( 10, 40 ), 10) -- composite target object
+    local t = display.newGroup ()-- composite target object
+    t.constructor = targetTypes[math.random(#targetTypes)]
+    t.values = { math.random( 10, 40 ), math.random( 10, 40 ), 10 }
+    t.targetSize = 20
+    -- only make non-circles rotate, because why not?
+    if t.constructor == display.newCircle then
+        t.rotates = false
+    else
+        t.rotates = true
+    end
+    t.direction = t.constructor == display.newRoundedRect and
+        1 or -1 -- non-rounded rects move to left
+    t.constructor(t, 0, t.targetSize, unpack(t.values) ) 
+    t.constructor(t, t.targetSize, 0, unpack(t.values) )
+    t.constructor(t, 0, -t.targetSize, unpack(t.values) )
+    t.constructor(t, -t.targetSize, 0, unpack(t.values) )
     t.y = math.random( SPAWN_Y_MIN, SPAWN_Y_MAX )
     if t.direction == 1 then
         t.direction = 1
@@ -144,15 +123,13 @@ function createTarget()
     --t[1].x = t[1].x + 20
     --t[2].x = t[2].x - 20
     --print(t.numChildren)
-    --[[if t.numChildren then
-        for i = t.pieces, 1, -1 do
-            t[i]:setFillColor(
-                math.random() / 3 + 0.5,
-                math.random() / 3 + 0.5,
-                math.random() / 3 + 0.5
-            )
-        end
-    end--]]
+    for i = t.numChildren, 1, -1 do
+        t[i]:setFillColor(
+            math.random() / 3 + 0.5,
+            math.random() / 3 + 0.5,
+            math.random() / 3 + 0.5
+        )
+    end
     targets:insert( t )   -- put t into the targets group
     return t
 end
@@ -236,7 +213,7 @@ function hitTest( b, t )
             end
         else -- treat t as a circle by default
             if hypotenuse( math.abs( bX - t[i].x ), math.abs( bY - t[i].y ) )
-                    < rBullet + ( t.path.radius or ( t.width + t.height ) / 4 ) then
+                    < rBullet + ( t.width + t.height ) / 4 then
                 return true
             end
         end
@@ -257,22 +234,11 @@ function newFrame()
             time = 150000 / ( 1 + t.y * math.random() ) / GAME_SPEED
         } )
     end
-    for k,v in pairs(targets._class) do
-        print(k,v)
-    end
-    --print(targets[targets.numChildren])
-    --[[print("foo")
-    for k,v in pairs(targets._class) do
-        print(k,v)
-    end--]]
-    --print(bullets.numChildren)
     -- Test for hits (all bullets against all targets)
     for i = bullets.numChildren, 1, -1 do
         local b = bullets[i]
-        print(targets)
         for j = targets.numChildren, 1, -1 do
             local t = targets[j]
-            print(t.x,t.y)
             if hitTest( b, t ) then
                 -- Count a hit
                 scores.hits:change( 1 )
