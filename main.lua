@@ -23,15 +23,22 @@ local X_CENTER = (X_MIN + X_MAX) / 2 -- the center of the display (horozontal ax
 local Y_CENTER = (Y_MIN + Y_MAX) / 2 -- the center of the display (vertical axis)
 local SPAWN_Y_MIN = Y_MIN + HEIGHT / 16
 local SPAWN_Y_MAX = Y_MAX - HEIGHT / 4
+local GAME_SPEED = 1
 
 -- File local variables
 local bullets -- display group of all active bullets
 local targets -- display group of all active targets
 local turret -- display group for the turret
 local scores -- table of Score objects
+local targetTypes = { -- tables of object contructor functions
+    display.newRect,
+    display.newRoundedRect,
+    display.newCircle
+}
 
 -- File local classes
 local Score
+local Target
 
 -- File local functions
 local createBullet
@@ -75,6 +82,40 @@ Score =
         self.textObj.text = self.text .. self.value
     end,
 }
+Target =
+{
+    -- Instance variables:
+        -- rotates -- whether the target should rotate during transitions
+        -- direction -- which way the target should move along the x-axis,
+            -- which is determined by whether it is compused of non-rounded rects.
+    -- Constructor. Makes four display objects in a "diamond" configuration
+    -- targetSize is the distance of each display object from the center of the group.
+    new = function( self, constructor, targetSize, radiusOrWidth, height,
+            cornerRadius )
+        local target = display.newGroup()
+        if constructor == display.newCircle then
+            target.rotates = false
+        else
+            target.rotates = true
+        end
+        target.direction = constructor == display.newRect and
+            1 or -1 -- roundedRects move to left
+        constructor( target, 0, targetSize, radiusOrWidth, height, cornerRadius) 
+        constructor( target, targetSize, 0, radiusOrWidth, height, cornerRadius)
+        constructor( target, 0, -targetSize, radiusOrWidth, height, cornerRadius)
+        constructor( target, -targetSize, 0, radiusOrWidth, height, cornerRadius)
+        for i = target.numChildren, 1, -1 do
+            target[i]:setFillColor(
+                math.random() / 3 + 0.5,
+                math.random() / 3 + 0.5,
+                math.random() / 3 + 0.5
+            )
+        end
+        setmetatable( target, self )
+        self.__index = self
+        return target
+    end
+}
 
 -- Function definitions
 -- Create and return a new bullet object.
@@ -87,23 +128,31 @@ end
 
 -- Create and return a new target object at a random altitude.
 function createTarget()
-    local t = display.newGroup()    -- composite target object
+    local t = Target:new(targetTypes[math.random(#targetTypes)],
+        20, math.random( 10, 40 ), math.random( 10, 40 ), 10) -- composite target object
     t.y = math.random( SPAWN_Y_MIN, SPAWN_Y_MAX )
-    if math.random( 0, 1 ) == 1 then
+    if t.direction == 1 then
         t.direction = 1
         t.x = X_MIN
     else
         t.direction = -1
         t.x = X_MAX
     end
-    --t.x = X_CENTER - t.direction * HEIGHT / 2
-    display.newRect(t, 0, 0, math.random( 25, 100 ), math.random( 25, 100 ) )
-    t[1]:setFillColor(
-        math.random() / 3 + 0.5,
-        math.random() / 3 + 0.5,
-        math.random() / 3 + 0.5
-    )
-
+    t.rotation = math.random( -180, 180 )
+    --display.newRoundedRect(t, 0, 0, math.random( 10, 40 ), math.random( 10, 40 ), 10 )
+    --display.newRoundedRect(t, 0, 0, math.random( 10, 40 ), math.random( 10, 40 ), 10 )
+    --t[1].x = t[1].x + 20
+    --t[2].x = t[2].x - 20
+    --print(t.numChildren)
+    --[[if t.numChildren then
+        for i = t.pieces, 1, -1 do
+            t[i]:setFillColor(
+                math.random() / 3 + 0.5,
+                math.random() / 3 + 0.5,
+                math.random() / 3 + 0.5
+            )
+        end
+    end--]]
     targets:insert( t )   -- put t into the targets group
     return t
 end
@@ -119,8 +168,7 @@ end
 -- Delete the target and count a target miss.
 function targetDone( obj )
     scores.targetMisses:change( 1 )
-    print(obj.x)
-    obj:removeSelf()
+    display.remove( obj )
 end
 
 -- Called when the screen is touched
@@ -162,14 +210,14 @@ end
 -- b should be a circle.
 -- t should be a display group of circles, rects, and/or roundedRects.
 function hitTest( b, t )
-    local rBullet = b.path.radius --or b.width / 2
+    local rBullet = b.path.radius
     for i = t.numChildren, 1, -1 do
         -- Get coordinates of bullet with respect to the target
         local bX, bY = t[i]:contentToLocal( b.x, b.y )
         if t[i].path.type == "rect" or t[i].path.type == "roundedRect" then
             -- Calculate x and y distance of bullet center from target edge
-            local xDist = math.abs( bX - t[i].x ) - t[i].width / 2
-            local yDist = math.abs( bY - t[i].y ) - t[i].height / 2
+            local xDist = math.abs( bX ) - t[i].width / 2
+            local yDist = math.abs( bY ) - t[i].height / 2
             -- Check if bullet has crossed both edge lines
             if xDist < rBullet and yDist < rBullet then
                 -- Check for special case where bullet is near a corner
@@ -204,18 +252,27 @@ function newFrame()
         transition.to( t, {
             x = X_CENTER + t.direction * WIDTH / 2,
             onComplete = targetDone,
-            rotation = ( math.random() - 0.5 ) * 4 * 360,
-            time = 150000 / ( 1 + t.y * math.random() )
+            rotation = t.rotation +
+                ( t.rotates and ( math.random() - 0.5 ) * 4 * 360 or 0 ),
+            time = 150000 / ( 1 + t.y * math.random() ) / GAME_SPEED
         } )
     end
-
+    for k,v in pairs(targets._class) do
+        print(k,v)
+    end
+    --print(targets[targets.numChildren])
+    --[[print("foo")
+    for k,v in pairs(targets._class) do
+        print(k,v)
+    end--]]
+    --print(bullets.numChildren)
     -- Test for hits (all bullets against all targets)
     for i = bullets.numChildren, 1, -1 do
         local b = bullets[i]
-
+        print(targets)
         for j = targets.numChildren, 1, -1 do
             local t = targets[j]
-
+            print(t.x,t.y)
             if hitTest( b, t ) then
                 -- Count a hit
                 scores.hits:change( 1 )
@@ -251,6 +308,7 @@ function initGame()
     bullets = display.newGroup()
     targets = display.newGroup()
     turret = display.newGroup()
+    -- Create the table for the score objects
     scores = {
         hits = Score:new{
             text = "#hits: ",
@@ -274,6 +332,8 @@ function initGame()
             align = "left",
         },
     }
+    --
+    
 
     -- Create and position the turret
     turret:insert( display.newImage( "turret.png" ) ) 
@@ -281,7 +341,7 @@ function initGame()
     turret.x = X_CENTER
     turret.y = Y_MAX - turret[1].height / 2
     turret.firingArc = 180
-    turret.firingVelocity = 1.5 / 8
+    turret.firingVelocity = .25
     turret.caliber = 10
 
     -- Add event listeners
