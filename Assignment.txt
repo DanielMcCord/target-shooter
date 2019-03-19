@@ -97,29 +97,29 @@ Grading
 
     [DONE](5) Bullet objects are destroyed when they go off the top of the screen.
 
-    [TODO](5) Target objects are display groups containing sub-parts (circles,
+    [DONE](5) Target objects are display groups containing sub-parts (circles,
     rectangles, images, etc.)
 
     [DONE](5) Targets launch at random intervals, random altitudes, and random speeds.
 
-    [TODO](10) Target objects are created right when launched using a Lua function that
+    [DONE](10) Target objects are created right when launched using a Lua function that
     one, and destroyed when done.
 
-    [TODO](5) Target flies horizontally across the screen and tumbles (rotates) while it
+    [DONE](5) Target flies horizontally across the screen and tumbles (rotates) while it
     flies, using a single transition.to animation.
 
-    [DONE](5) Check for hits for any active bullet against any active target.
+    [TODO](5) Check for hits for any active bullet against any active target.
 
-    [TODO](10) Handle hits properly
+    [DONE](10) Handle hits properly
 
     [DONE](5) Handle misses properly
 
-    [TODO](10) Explosion graphic is drawn at a hit and animated with transition.to. It
+    [DONE](10) Explosion graphic is drawn at a hit and animated with transition.to. It
     should expand and fade, then get deleted.
 
     [DONE](5) Stats shown on-screen with at least #hits, #bullet misses, #target misses.
 
-    [TODO](5) Lua code contains no global variables (file local Ok when appropriate) and
+    [DONE](5) Lua code contains no global variables (file local Ok when appropriate) and
     no dangling object references (nothing should reference an object after it gets
     destroyed).
 

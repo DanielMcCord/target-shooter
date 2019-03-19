@@ -47,6 +47,11 @@ local initGame
 -- Class definitions
 Score =
 {
+    -- Instance variables:
+        -- value -- Number. The actual score.
+        -- text -- String. The text to display before the score.
+        -- textObj -- DisplayObject. Text box that dispays ( text .. value ).
+
     -- Constructor. Parameters follow modern syntax for display.newText(),
     -- with one difference: the default value of 0 is appended to score.textObj.text,
     -- but instance variable text is set to the passed value of text.
@@ -63,7 +68,8 @@ Score =
         self.__index = self
         return score
     end,
-    -- 
+
+    -- Increases or decreases the score by some amount.
     change = function( self, amount )
         self.value = self.value + amount
         self.textObj.text = self.text .. self.value
@@ -83,19 +89,20 @@ end
 function createTarget()
     local t = display.newGroup()    -- composite target object
     t.y = math.random( SPAWN_Y_MIN, SPAWN_Y_MAX )
-    t.direction = math.random( 1 )
-    if t.driection == 0 then
+    if math.random( 0, 1 ) == 1 then
+        t.direction = 1
+        t.x = X_MIN
+    else
         t.direction = -1
-    end 
-    t.x = X_CENTER + WIDTH * t.direction / -2
-    temp1 = display.newRect(0, 0, 50, 50 )
-    t:insert( temp1, false )
-    t[1].x = X_MIN 
-    temp1:setFillColor( math.random(), math.random(), math.random() )
-    -- t[1].rotation = t[1].rotation + 45
-    -- temp2 = display["newRect"](t, 0, 0, 10, 10 )
-    -- temp2.x = temp2.x + 100
-    --temp1:setFillColor( 0.5, 0, 0 )
+        t.x = X_MAX
+    end
+    --t.x = X_CENTER - t.direction * HEIGHT / 2
+    display.newRect(t, 0, 0, math.random( 25, 100 ), math.random( 25, 100 ) )
+    t[1]:setFillColor(
+        math.random() / 3 + 0.5,
+        math.random() / 3 + 0.5,
+        math.random() / 3 + 0.5
+    )
 
     targets:insert( t )   -- put t into the targets group
     return t
@@ -112,6 +119,7 @@ end
 -- Delete the target and count a target miss.
 function targetDone( obj )
     scores.targetMisses:change( 1 )
+    print(obj.x)
     obj:removeSelf()
 end
 
@@ -194,7 +202,7 @@ function newFrame()
     if math.random() < 0.01 then
         local t = createTarget()
         transition.to( t, {
-            x = t.x + WIDTH * t.direction,
+            x = X_CENTER + t.direction * WIDTH / 2,
             onComplete = targetDone,
             rotation = ( math.random() - 0.5 ) * 4 * 360,
             time = 150000 / ( 1 + t.y * math.random() )
@@ -213,7 +221,14 @@ function newFrame()
                 scores.hits:change( 1 )
 
                 -- Make an explosion
-                -- ...
+                local explosion = display.newCircle( t.x, t.y, ( t.width + t.height ) / 4 )
+                explosion.explosive = true
+                transition.to( explosion, {
+                    xScale = 2,
+                    yScale = 2,
+                    alpha = 0,
+                    onComplete = explosion.removeSelf
+                    } )
 
                 -- Delete the bullet
                 transition.cancel( b )
@@ -266,7 +281,7 @@ function initGame()
     turret.x = X_CENTER
     turret.y = Y_MAX - turret[1].height / 2
     turret.firingArc = 180
-    turret.firingVelocity = 1.5
+    turret.firingVelocity = 1.5 / 8
     turret.caliber = 10
 
     -- Add event listeners
